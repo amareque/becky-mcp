@@ -429,7 +429,7 @@ server.registerTool("create_movement",
             description: z.string()
                 .min(5, "Description must be at least 5 characters - ask for specific details")
                 .max(500, "Description must be less than 500 characters")
-                .refine(val => !['unknown', 'guess', 'estimate', 'approximately', 'around', 'about'].some(word => 
+                .refine(val => !['unknown', 'guess', 'estimate', 'approximately', 'around', 'about'].some(word =>
                     val.toLowerCase().includes(word)
                 ), {
                     message: "Description seems vague or estimated. Please ask the user for specific details about this transaction."
@@ -485,7 +485,7 @@ server.registerTool("create_movement",
             }
 
             // Additional runtime validation to catch common guessing patterns
-            
+
             // Check for suspicious round numbers
             if (amount % 100 === 0 && amount >= 100) {
                 return {
@@ -596,20 +596,20 @@ server.registerTool("create_movement",
             }
 
             const movementResponse = await response.json();
-            
+
             const typeText = type === 'income' ? 'Income' : 'Expense';
             const amountText = `$${amount.toFixed(2)}`;
-            
+
             let responseText = `✅ ${typeText} movement created successfully!\n\nDetails:\n- Movement ID: ${movementResponse.id}\n- Type: ${typeText}\n- Amount: ${amountText}\n- Description: ${description}\n- Date: ${date}`;
-            
+
             if (concept) {
                 responseText += `\n- Concept: ${concept}`;
             }
-            
+
             if (category) {
                 responseText += `\n- Category: ${category}`;
             }
-            
+
             responseText += `\n- Account ID: ${accountId}`;
 
             return {
@@ -662,22 +662,22 @@ server.registerTool("confirm_movement",
             if (!confirmed) {
                 const typeText = type === 'income' ? 'Income' : 'Expense';
                 const amountText = `$${amount.toFixed(2)}`;
-                
+
                 let confirmationText = `📋 MOVEMENT DETAILS - PLEASE CONFIRM\n\n`;
                 confirmationText += `Type: ${typeText}\n`;
                 confirmationText += `Amount: ${amountText}\n`;
                 confirmationText += `Description: ${description}\n`;
                 confirmationText += `Date: ${date}\n`;
                 confirmationText += `Account ID: ${accountId}\n`;
-                
+
                 if (concept) {
                     confirmationText += `Concept: ${concept}\n`;
                 }
-                
+
                 if (category) {
                     confirmationText += `Category: ${category}\n`;
                 }
-                
+
                 confirmationText += `\n⚠️ Please confirm these details are correct by setting 'confirmed' to true.`;
                 confirmationText += `\n\nIf any details are wrong, please correct them and try again.`;
 
@@ -1430,6 +1430,169 @@ server.registerTool("update_movement",
     }
 );
 
+// Register tool to get actual USD currency from UYU
+server.registerTool("convert_movement_currency",
+    {
+        title: "Switch currency of movement",
+        description: "Get the currency of a movement or balance from UYU to USD",
+        inputSchema: {}
+    },
+    async (params) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Make request to API to get current user info
+            const apiUrl = process.env.API_SERVER_URL || 'https://uy.dolarapi.com';
+            const response = await fetch(`${apiUrl}/v1/cotizaciones/usd`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                // Token might be invalid, clear state
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Failed to get latest currency. Please try again."
+                    }]
+                };
+            }
+
+            const latestCurrency = await response.json();
+
+            return {
+                content: [{
+                    type: "text",
+                    text: `Current UYU/USD exchange: ${latestCurrency.venta}`
+                }]
+            };
+        } catch (error) {
+            console.log('Error getting USD currency:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error getting USD currency: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+//Register tool to fetch stocks
+server.registerTool("get_stocks",
+    {
+        title: "Get stocks",
+        description: "Fetch stock prices for a given stock symbol",
+        inputSchema: {
+            symbol: z.string().min(1, "Stock symbol is required")
+        }
+    },
+    async ({ symbol }) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Make request to your API to get stock prices
+            const apiUrl = process.env.API_SERVER_URL || 'https://query1.finance.yahoo.com';
+            const response = await fetch(`${apiUrl}/v7/finance/quote?symbols=${symbol}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to get stock prices: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const stockData = await response.json();
+
+            return {
+                content: [{
+                    type: "text",
+                    text: `Current price of ${symbol}: $${stockData.price}`
+                }]
+            };
+        } catch (error) {
+            console.log('Error getting stock prices:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error getting stock prices: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
 // Create contact tool
 server.registerTool("create_contact",
     {
@@ -1505,21 +1668,21 @@ server.registerTool("create_contact",
             }
 
             const contactData = await response.json();
-            
+
             let responseText = `Contact created successfully!\n\nDetails:\n- Contact ID: ${contactData.id}\n- Name: ${contactData.name}`;
-            
+
             if (contactData.nickname) {
                 responseText += `\n- Nickname: ${contactData.nickname}`;
             }
-            
+
             if (contactData.phone) {
                 responseText += `\n- Phone: ${contactData.phone}`;
             }
-            
+
             if (contactData.email) {
                 responseText += `\n- Email: ${contactData.email}`;
             }
-            
+
             if (contactData.notes) {
                 responseText += `\n- Notes: ${contactData.notes}`;
             }
@@ -1604,7 +1767,7 @@ server.registerTool("get_contacts",
             }
 
             const contactsData = await response.json();
-            
+
             if (!contactsData.contacts || contactsData.contacts.length === 0) {
                 return {
                     content: [{
@@ -1754,12 +1917,12 @@ server.registerTool("create_shared_expense",
             }
 
             const responseData = await response.json();
-            
+
             const myShare = responseData.summary.myShare.toFixed(2);
             const pendingAmount = responseData.summary.pendingAmount.toFixed(2);
-            
+
             let responseText = `✅ Shared expense created successfully!\n\n📊 **Summary:**\n- Total spent: ${totalAmount.toFixed(2)}\n- Your share: ${myShare}\n- Amount others owe you: ${pendingAmount}\n- Split among: ${participants} people\n- Description: ${description}\n\n💰 **What happened:**\n- Created expense for your part (${myShare})\n- Created pending income for what others owe (${pendingAmount})`;
-            
+
             if (participantsList && participantsList.length > 0) {
                 responseText += `\n\n👥 **Participants:** ${participantsList.join(', ')}`;
             }
@@ -1884,16 +2047,16 @@ server.registerTool("create_simple_loan",
             }
 
             const responseData = await response.json();
-            
+
             const emoji = loanType === 'lent' ? '💸' : '💰';
             const action = loanType === 'lent' ? 'lent to' : 'borrowed from';
-            
+
             let responseText = `${emoji} **Loan recorded successfully!**\n\n📊 **Details:**\n- Amount: ${amount.toFixed(2)}\n- Type: You ${action} someone\n- Description: ${description}\n- Date: ${date}`;
-            
+
             if (relatedPerson) {
                 responseText += `\n- Person: ${relatedPerson}`;
             }
-            
+
             responseText += `\n\n💡 **Note:** This loan is now tracked as ${loanType === 'lent' ? 'money owed to you' : 'money you owe'}. Use get_pending_loans to see all your active loans.`;
 
             return {
@@ -1976,7 +2139,7 @@ server.registerTool("get_pending_loans",
             }
 
             const loansData = await response.json();
-            
+
             if (!loansData.loans || loansData.loans.length === 0) {
                 return {
                     content: [{
@@ -1992,30 +2155,30 @@ server.registerTool("get_pending_loans",
             loansText += `- Money owed TO you: ${loansData.summary.totalLent.toFixed(2)}\n`;
             loansText += `- Money you OWE: ${loansData.summary.totalBorrowed.toFixed(2)}\n`;
             loansText += `- Net balance: ${loansData.summary.netBalance.toFixed(2)} ${loansData.summary.netBalance >= 0 ? '(in your favor)' : '(you owe)'}\n\n`;
-            
+
             loansText += `📋 **Individual Loans (${loansData.loans.length}):**\n\n`;
-            
+
             loansData.loans.forEach((loan, index) => {
                 const emoji = loan.loanType === 'lent' || loan.loanType === 'shared' ? '💸' : '💰';
                 const typeText = loan.loanType === 'lent' ? 'You lent' : loan.loanType === 'borrowed' ? 'You borrowed' : 'Shared expense';
                 const pendingAmount = loan.pendingAmount || 0;
                 const dateText = new Date(loan.date).toLocaleDateString();
-                
+
                 loansText += `${index + 1}. ${emoji} **${typeText}**: ${pendingAmount.toFixed(2)}\n`;
                 loansText += `   - Description: ${loan.description}\n`;
                 loansText += `   - Date: ${dateText}\n`;
-                
+
                 if (loan.loanType === 'shared' && loan.originalAmount) {
                     loansText += `   - Original total: ${loan.originalAmount.toFixed(2)} (${loan.participants} people)\n`;
                 }
-                
+
                 if (loan.relatedPeople && Array.isArray(loan.relatedPeople) && loan.relatedPeople.length > 0) {
                     loansText += `   - People: ${loan.relatedPeople.join(', ')}\n`;
                 }
-                
+
                 loansText += `   - Loan ID: ${loan.id}\n\n`;
             });
-            
+
             loansText += `💡 **Tip:** Use settle_loan tool to mark loans as paid when you receive/pay money.`;
 
             return {
@@ -2116,12 +2279,12 @@ server.registerTool("settle_loan",
             }
 
             const responseData = await response.json();
-            
+
             const emoji = responseData.status === 'settled' ? '✅' : '⏳';
             const statusText = responseData.status === 'settled' ? 'FULLY SETTLED' : 'PARTIALLY PAID';
-            
+
             let responseText = `${emoji} **Loan settlement recorded!**\n\n📊 **Settlement Details:**\n- Amount paid: ${(amountPaid || 0).toFixed(2)}\n- Remaining amount: ${responseData.remainingAmount.toFixed(2)}\n- Status: ${statusText}`;
-            
+
             if (responseData.status === 'settled') {
                 responseText += `\n\n🎉 **Congratulations!** This loan is now fully settled.`;
             } else {
@@ -2223,7 +2386,7 @@ server.registerTool("process_receipt_image",
             if (!autoCreate) {
                 let responseText = `📸 **Imagen procesada exitosamente**\n\n`;
                 responseText += `🔍 **Datos extraídos:**\n`;
-                
+
                 if (extractedData.amount) {
                     responseText += `- 💰 Monto: ${extractedData.amount}\n`;
                 }
@@ -2236,9 +2399,9 @@ server.registerTool("process_receipt_image",
                 if (extractedData.category) {
                     responseText += `- 📂 Categoría sugerida: ${extractedData.category}\n`;
                 }
-                
+
                 responseText += `\n📊 **Confianza del AI**: ${(extractedData.confidence * 100).toFixed(1)}%\n`;
-                
+
                 if (extractedData.needsReview) {
                     responseText += `\n⚠️ **Se recomienda revisar los datos antes de crear el gasto.**\n`;
                     responseText += `\n💡 Para crear el gasto automáticamente, usa: process_receipt_image con autoCreate=true`;
@@ -2293,7 +2456,7 @@ server.registerTool("process_receipt_image",
             }
 
             const createData = await createResponse.json();
-            
+
             let responseText = `✅ **Gasto creado automáticamente desde imagen**\n\n`;
             responseText += `📊 **Detalles del gasto:**\n`;
             responseText += `- 💰 Monto: ${createData.movement.amount}\n`;
@@ -2302,7 +2465,7 @@ server.registerTool("process_receipt_image",
             responseText += `- 📂 Categoría: ${createData.movement.category}\n`;
             responseText += `- 🏦 Cuenta: ${accountId}\n`;
             responseText += `- 🆔 ID del movimiento: ${createData.movement.id}\n`;
-            
+
             responseText += `\n🎯 **Procesamiento de imagen exitoso!**`;
 
             return {
@@ -2393,48 +2556,48 @@ server.registerTool("extract_receipt_data",
 
             const data = await response.json();
             const { extractedData } = data;
-            
+
             let responseText = `📸 **Análisis de imagen completado**\n\n`;
             responseText += `🔍 **Datos extraídos:**\n`;
-            
+
             if (extractedData.amount) {
                 responseText += `- 💰 **Monto**: ${extractedData.amount}\n`;
             } else {
                 responseText += `- 💰 **Monto**: No detectado\n`;
             }
-            
+
             if (extractedData.merchant) {
                 responseText += `- 🏪 **Comercio**: ${extractedData.merchant}\n`;
             } else {
                 responseText += `- 🏪 **Comercio**: No detectado\n`;
             }
-            
+
             if (extractedData.date) {
                 responseText += `- 📅 **Fecha**: ${extractedData.date}\n`;
             } else {
                 responseText += `- 📅 **Fecha**: No detectada\n`;
             }
-            
+
             if (extractedData.category) {
                 responseText += `- 📂 **Categoría sugerida**: ${extractedData.category}\n`;
             }
-            
+
             if (extractedData.items && extractedData.items.length > 0) {
                 responseText += `- 🛍️ **Items detectados**: ${extractedData.items.length} productos\n`;
             }
-            
+
             responseText += `\n📊 **Confianza del AI**: ${(extractedData.confidence * 100).toFixed(1)}%\n`;
-            
+
             if (extractedData.rawText) {
                 responseText += `\n📝 **Texto detectado**:\n${extractedData.rawText.substring(0, 200)}${extractedData.rawText.length > 200 ? '...' : ''}\n`;
             }
-            
+
             if (extractedData.needsReview) {
                 responseText += `\n⚠️ **Recomendación**: Revisar los datos antes de crear el gasto.\n`;
             } else {
                 responseText += `\n✅ **Los datos se ven correctos.**\n`;
             }
-            
+
             responseText += `\n💡 **Siguiente paso**: Usar process_receipt_image para crear el gasto automáticamente.`;
 
             return {
@@ -2552,7 +2715,7 @@ server.registerTool("create_expense_from_receipt_manual",
             }
 
             const data = await response.json();
-            
+
             let responseText = `✅ **Gasto creado exitosamente desde recibo**\n\n`;
             responseText += `📊 **Detalles:**\n`;
             responseText += `- 💰 Monto: ${amount.toFixed(2)}\n`;
@@ -2562,11 +2725,11 @@ server.registerTool("create_expense_from_receipt_manual",
             responseText += `- 🏷️ Concepto: ${concept}\n`;
             responseText += `- 🏦 Cuenta: ${accountId}\n`;
             responseText += `- 🆔 Movement ID: ${data.movement.id}\n`;
-            
+
             if (notes) {
                 responseText += `- 📝 Notas: ${notes}\n`;
             }
-            
+
             responseText += `\n🎯 **Gasto registrado correctamente!**`;
 
             return {
