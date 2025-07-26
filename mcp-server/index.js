@@ -81,7 +81,7 @@ server.registerTool("login",
     {
         title: "Login to Becky",
         description: "Authenticate with Becky using email and password to get access token",
-        inputSchema: {
+        inputSchema: { 
             email: z.string().email(),
             password: z.string()
         }
@@ -104,15 +104,15 @@ server.registerTool("login",
             if (!response.ok) {
                 const errorData = await response.json();
                 return {
-                    content: [{
-                        type: "text",
-                        text: `Login failed: ${errorData.error || 'Invalid credentials'}`
+                    content: [{ 
+                        type: "text", 
+                        text: `Login failed: ${errorData.error || 'Invalid credentials'}` 
                     }]
                 };
             }
 
             const loginData = await response.json();
-
+            
             // Store authentication data in server memory
             authState = {
                 userId: loginData.user.id,
@@ -139,6 +139,77 @@ server.registerTool("login",
                 content: [{
                     type: "text",
                     text: `Login error: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Register tool for new users
+server.registerTool("register",
+    {
+        title: "Register new user",
+        description: "Create a new account with Becky using name, email, and password",
+        inputSchema: { 
+            name: z.string().min(1, "Name is required"),
+            email: z.string().email("Valid email is required"),
+            password: z.string().min(6, "Password must be at least 6 characters")
+        }
+    },
+    async ({ name, email, password }) => {
+        try {
+            // Make request to your API to register
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/auth/register`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name,
+                    email,
+                    password
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                return {
+                    content: [{ 
+                        type: "text", 
+                        text: `Registration failed: ${errorData.error || 'Registration failed'}` 
+                    }]
+                };
+            }
+
+            const registerData = await response.json();
+            
+            // Store authentication data in server memory (auto-login after registration)
+            authState = {
+                userId: registerData.user.id,
+                userEmail: registerData.user.email,
+                userName: registerData.user.name,
+                token: registerData.token,
+                isAuthenticated: true,
+                // Add expiration if your API provides it
+                expiresAt: registerData.expiresAt || (Date.now() + (24 * 60 * 60 * 1000)) // 24 hours default
+            };
+
+            // Save to file for persistence
+            await saveAuthState(authState);
+
+            return {
+                content: [{
+                    type: "text",
+                    text: `Registration successful! Welcome to Becky, ${registerData.user.name}. Your account has been created with user ID ${registerData.user.id}. You are now logged in and can use other tools like create_account.`
+                }]
+            };
+        } catch (error) {
+            console.log('Error during registration:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Registration error: ${error.message}`
                 }]
             };
         }
