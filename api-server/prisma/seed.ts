@@ -160,6 +160,130 @@ async function main() {
 
     console.log('✅ Created user context')
 
+    // Create sample contacts
+    const contacts = [
+        {
+            userId: user.id,
+            name: 'María García',
+            phone: '+1234567890',
+            email: 'maria@example.com',
+            nickname: 'Mari',
+            notes: 'Compañera de trabajo'
+        },
+        {
+            userId: user.id,
+            name: 'Juan Pérez',
+            phone: '+0987654321',
+            nickname: 'Juancho',
+            notes: 'Amigo de la universidad'
+        },
+        {
+            userId: user.id,
+            name: 'Ana López',
+            email: 'ana.lopez@example.com',
+            notes: 'Vecina'
+        }
+    ]
+
+    for (const contact of contacts) {
+        await prisma.contact.upsert({
+            where: {
+                id: `${contact.name.toLowerCase().replace(/\s+/g, '-')}-${user.id}`
+            },
+            update: {},
+            create: {
+                id: `${contact.name.toLowerCase().replace(/\s+/g, '-')}-${user.id}`,
+                ...contact
+            }
+        })
+    }
+
+    console.log('✅ Created sample contacts')
+
+    // Create sample loan movements
+    const loanMovements = [
+        // Shared expense example
+        {
+            accountId: checkingAccount.id,
+            type: 'expense',
+            concept: 'others',
+            amount: 20, // My share of 100 split among 5 people
+            description: 'Fotocopias (mi parte: 20 de 100 entre 5 personas)',
+            date: new Date('2024-01-18'),
+            category: 'office',
+            isLoan: true,
+            loanType: 'shared',
+            originalAmount: 100,
+            participants: 5,
+            pendingAmount: 80,
+            relatedPeople: ['María García', 'Juan Pérez', 'Ana López', 'Carlos Ruiz'],
+            loanStatus: 'active'
+        },
+        // Pending income for the shared expense
+        {
+            accountId: checkingAccount.id,
+            type: 'income',
+            concept: 'others',
+            amount: 80,
+            description: 'Pendiente por cobrar: Fotocopias',
+            date: new Date('2024-01-18'),
+            category: 'pending_loan',
+            isLoan: true,
+            loanType: 'lent',
+            originalAmount: 100,
+            participants: 5,
+            pendingAmount: 80,
+            relatedPeople: ['María García', 'Juan Pérez', 'Ana López', 'Carlos Ruiz'],
+            loanStatus: 'active'
+        },
+        // Simple loan - I lent money
+        {
+            accountId: checkingAccount.id,
+            type: 'expense',
+            concept: 'others',
+            amount: 50,
+            description: 'Presté: Dinero para almuerzo a Juan',
+            date: new Date('2024-01-22'),
+            category: 'loan',
+            isLoan: true,
+            loanType: 'lent',
+            originalAmount: 50,
+            participants: 2,
+            pendingAmount: 50,
+            relatedPeople: ['Juan Pérez'],
+            loanStatus: 'active'
+        },
+        // Simple loan - Someone lent me money
+        {
+            accountId: checkingAccount.id,
+            type: 'income',
+            concept: 'others',
+            amount: 30,
+            description: 'Me prestaron: Dinero para taxi de María',
+            date: new Date('2024-01-25'),
+            category: 'loan',
+            isLoan: true,
+            loanType: 'borrowed',
+            originalAmount: 30,
+            participants: 2,
+            pendingAmount: 30,
+            relatedPeople: ['María García'],
+            loanStatus: 'active'
+        }
+    ]
+
+    for (const loanMovement of loanMovements) {
+        await prisma.movement.upsert({
+            where: {
+                id: `${loanMovement.accountId}-${loanMovement.date.toISOString()}-${loanMovement.description}`
+            },
+            update: {},
+            create: loanMovement
+        })
+    }
+
+    console.log('✅ Created sample loan movements')
+
     console.log('🎉 Database seeded successfully!')
     console.log('📧 Login with: test@becky.com / password123')
 }
