@@ -254,4 +254,68 @@ router.patch('/:movementId', async (req: Request, res: Response) => {
   }
 })
 
+// Delete movement
+router.delete('/:movementId', async (req: Request, res: Response) => {
+  try {
+    const authHeader = req.headers.authorization
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        message: 'Authorization header required',
+      })
+    }
+
+    const token = authHeader.substring(7)
+    const { movementId } = req.params
+
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+      
+      // Find movement and verify it belongs to user
+      const existingMovement = await prisma.movement.findFirst({
+        where: { 
+          id: movementId,
+          account: {
+            userId: decoded.userId
+          }
+        },
+        include: {
+          account: true
+        }
+      })
+
+      if (!existingMovement) {
+        return res.status(404).json({
+          message: 'Movement not found',
+        })
+      }
+
+      // Delete the movement
+      await prisma.movement.delete({
+        where: { id: movementId },
+      })
+
+      res.json({
+        message: 'Movement deleted successfully',
+        deletedMovement: {
+          id: existingMovement.id,
+          type: existingMovement.type,
+          amount: existingMovement.amount,
+          description: existingMovement.description,
+          accountName: existingMovement.account.name
+        }
+      })
+    } catch (jwtError) {
+      return res.status(401).json({
+        message: 'Invalid token',
+      })
+    }
+  } catch (error) {
+    console.error('Delete movement error:', error)
+    res.status(500).json({
+      message: 'Internal server error',
+    })
+  }
+})
+
 export { router as movementsRouter } 

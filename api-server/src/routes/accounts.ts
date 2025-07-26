@@ -60,7 +60,17 @@ router.post('/', async (req: Request, res: Response) => {
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-      const { name, bank, type } = req.body
+      const { name, bank, type, currency } = req.body
+
+      // Validate required fields
+      if (!name) {
+        return res.status(400).json({
+          message: 'Account name is required',
+        })
+      }
+
+      // Set default currency to UYU if not provided
+      const accountCurrency = currency || 'UYU'
 
       const account = await prisma.account.create({
         data: {
@@ -68,6 +78,7 @@ router.post('/', async (req: Request, res: Response) => {
           name,
           bank,
           type,
+          currency: accountCurrency,
         },
       })
 
@@ -98,7 +109,7 @@ router.patch('/:accountId', async (req: Request, res: Response) => {
 
     const token = authHeader.substring(7)
     const { accountId } = req.params
-    const { name, bank, type } = req.body
+    const { name, bank, type, currency } = req.body
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
@@ -122,6 +133,7 @@ router.patch('/:accountId', async (req: Request, res: Response) => {
       if (name !== undefined) updateData.name = name
       if (bank !== undefined) updateData.bank = bank
       if (type !== undefined) updateData.type = type
+      if (currency !== undefined) updateData.currency = currency
 
       const account = await prisma.account.update({
         where: { id: accountId },

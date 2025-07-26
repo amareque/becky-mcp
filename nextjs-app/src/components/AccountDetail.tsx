@@ -156,6 +156,22 @@ export function AccountDetail({ account, onBack, onRefresh }: AccountDetailProps
     onRefresh()
   }
 
+  const handleDeleteMovement = async (movementId: string) => {
+    if (!confirm('Are you sure you want to delete this movement? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      await movementsAPI.deleteMovement(movementId)
+      toast.success('Movement deleted successfully!')
+      fetchAccountData()
+      onRefresh()
+    } catch (error: any) {
+      console.error('Delete movement error:', error)
+      toast.error(error.response?.data?.error || 'Failed to delete movement')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -183,6 +199,7 @@ export function AccountDetail({ account, onBack, onRefresh }: AccountDetailProps
             <p className="text-gray-500">
               {account.type && `${account.type} account`}
               {account.bank && ` • ${account.bank}`}
+              {` • ${account.currency}`}
             </p>
           </div>
         </div>
@@ -337,13 +354,22 @@ export function AccountDetail({ account, onBack, onRefresh }: AccountDetailProps
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className={`font-semibold ${
-                    movement.type === 'income' ? 'text-success-600' : 'text-danger-600'
-                  }`}>
-                    {movement.type === 'income' ? '+' : '-'}${movement.amount.toFixed(2)}
-                  </p>
-                </div>
+                                 <div className="flex items-center gap-4">
+                   <div className="text-right">
+                     <p className={`font-semibold ${
+                       movement.type === 'income' ? 'text-success-600' : 'text-danger-600'
+                     }`}>
+                       {movement.type === 'income' ? '+' : '-'}${movement.amount.toFixed(2)}
+                     </p>
+                   </div>
+                   <button
+                     onClick={() => handleDeleteMovement(movement.id)}
+                     className="p-2 text-gray-400 hover:text-danger-600 transition-colors"
+                     title="Delete movement"
+                   >
+                     <Trash2 className="w-4 h-4" />
+                   </button>
+                 </div>
               </div>
             ))}
           </div>

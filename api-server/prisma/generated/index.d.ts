@@ -2339,6 +2339,7 @@ export namespace Prisma {
     name: string | null
     bank: string | null
     type: string | null
+    currency: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -2349,6 +2350,7 @@ export namespace Prisma {
     name: string | null
     bank: string | null
     type: string | null
+    currency: string | null
     createdAt: Date | null
     updatedAt: Date | null
   }
@@ -2359,6 +2361,7 @@ export namespace Prisma {
     name: number
     bank: number
     type: number
+    currency: number
     createdAt: number
     updatedAt: number
     _all: number
@@ -2371,6 +2374,7 @@ export namespace Prisma {
     name?: true
     bank?: true
     type?: true
+    currency?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -2381,6 +2385,7 @@ export namespace Prisma {
     name?: true
     bank?: true
     type?: true
+    currency?: true
     createdAt?: true
     updatedAt?: true
   }
@@ -2391,6 +2396,7 @@ export namespace Prisma {
     name?: true
     bank?: true
     type?: true
+    currency?: true
     createdAt?: true
     updatedAt?: true
     _all?: true
@@ -2474,6 +2480,7 @@ export namespace Prisma {
     name: string
     bank: string | null
     type: string | null
+    currency: string
     createdAt: Date
     updatedAt: Date
     _count: AccountCountAggregateOutputType | null
@@ -2501,6 +2508,7 @@ export namespace Prisma {
     name?: boolean
     bank?: boolean
     type?: boolean
+    currency?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     user?: boolean | UserDefaultArgs<ExtArgs>
@@ -2514,6 +2522,7 @@ export namespace Prisma {
     name?: boolean
     bank?: boolean
     type?: boolean
+    currency?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     user?: boolean | UserDefaultArgs<ExtArgs>
@@ -2525,6 +2534,7 @@ export namespace Prisma {
     name?: boolean
     bank?: boolean
     type?: boolean
+    currency?: boolean
     createdAt?: boolean
     updatedAt?: boolean
     user?: boolean | UserDefaultArgs<ExtArgs>
@@ -2536,11 +2546,12 @@ export namespace Prisma {
     name?: boolean
     bank?: boolean
     type?: boolean
+    currency?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type AccountOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "userId" | "name" | "bank" | "type" | "createdAt" | "updatedAt", ExtArgs["result"]["account"]>
+  export type AccountOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "userId" | "name" | "bank" | "type" | "currency" | "createdAt" | "updatedAt", ExtArgs["result"]["account"]>
   export type AccountInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     user?: boolean | UserDefaultArgs<ExtArgs>
     movements?: boolean | Account$movementsArgs<ExtArgs>
@@ -2565,6 +2576,7 @@ export namespace Prisma {
       name: string
       bank: string | null
       type: string | null
+      currency: string
       createdAt: Date
       updatedAt: Date
     }, ExtArgs["result"]["account"]>
@@ -2997,6 +3009,7 @@ export namespace Prisma {
     readonly name: FieldRef<"Account", 'String'>
     readonly bank: FieldRef<"Account", 'String'>
     readonly type: FieldRef<"Account", 'String'>
+    readonly currency: FieldRef<"Account", 'String'>
     readonly createdAt: FieldRef<"Account", 'DateTime'>
     readonly updatedAt: FieldRef<"Account", 'DateTime'>
   }
@@ -5667,6 +5680,7 @@ export namespace Prisma {
     name: 'name',
     bank: 'bank',
     type: 'type',
+    currency: 'currency',
     createdAt: 'createdAt',
     updatedAt: 'updatedAt'
   };
@@ -5890,6 +5904,7 @@ export namespace Prisma {
     name?: StringFilter<"Account"> | string
     bank?: StringNullableFilter<"Account"> | string | null
     type?: StringNullableFilter<"Account"> | string | null
+    currency?: StringFilter<"Account"> | string
     createdAt?: DateTimeFilter<"Account"> | Date | string
     updatedAt?: DateTimeFilter<"Account"> | Date | string
     user?: XOR<UserScalarRelationFilter, UserWhereInput>
@@ -5902,6 +5917,7 @@ export namespace Prisma {
     name?: SortOrder
     bank?: SortOrderInput | SortOrder
     type?: SortOrderInput | SortOrder
+    currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     user?: UserOrderByWithRelationInput
@@ -5917,6 +5933,7 @@ export namespace Prisma {
     name?: StringFilter<"Account"> | string
     bank?: StringNullableFilter<"Account"> | string | null
     type?: StringNullableFilter<"Account"> | string | null
+    currency?: StringFilter<"Account"> | string
     createdAt?: DateTimeFilter<"Account"> | Date | string
     updatedAt?: DateTimeFilter<"Account"> | Date | string
     user?: XOR<UserScalarRelationFilter, UserWhereInput>
@@ -5929,6 +5946,7 @@ export namespace Prisma {
     name?: SortOrder
     bank?: SortOrderInput | SortOrder
     type?: SortOrderInput | SortOrder
+    currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
     _count?: AccountCountOrderByAggregateInput
@@ -5945,6 +5963,7 @@ export namespace Prisma {
     name?: StringWithAggregatesFilter<"Account"> | string
     bank?: StringNullableWithAggregatesFilter<"Account"> | string | null
     type?: StringNullableWithAggregatesFilter<"Account"> | string | null
+    currency?: StringWithAggregatesFilter<"Account"> | string
     createdAt?: DateTimeWithAggregatesFilter<"Account"> | Date | string
     updatedAt?: DateTimeWithAggregatesFilter<"Account"> | Date | string
   }
@@ -6157,6 +6176,7 @@ export namespace Prisma {
     name: string
     bank?: string | null
     type?: string | null
+    currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
     user: UserCreateNestedOneWithoutAccountsInput
@@ -6169,6 +6189,7 @@ export namespace Prisma {
     name: string
     bank?: string | null
     type?: string | null
+    currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
     movements?: MovementUncheckedCreateNestedManyWithoutAccountInput
@@ -6179,6 +6200,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     bank?: NullableStringFieldUpdateOperationsInput | string | null
     type?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     user?: UserUpdateOneRequiredWithoutAccountsNestedInput
@@ -6191,6 +6213,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     bank?: NullableStringFieldUpdateOperationsInput | string | null
     type?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     movements?: MovementUncheckedUpdateManyWithoutAccountNestedInput
@@ -6202,6 +6225,7 @@ export namespace Prisma {
     name: string
     bank?: string | null
     type?: string | null
+    currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -6211,6 +6235,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     bank?: NullableStringFieldUpdateOperationsInput | string | null
     type?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -6221,6 +6246,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     bank?: NullableStringFieldUpdateOperationsInput | string | null
     type?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -6509,6 +6535,7 @@ export namespace Prisma {
     name?: SortOrder
     bank?: SortOrder
     type?: SortOrder
+    currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -6519,6 +6546,7 @@ export namespace Prisma {
     name?: SortOrder
     bank?: SortOrder
     type?: SortOrder
+    currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -6529,6 +6557,7 @@ export namespace Prisma {
     name?: SortOrder
     bank?: SortOrder
     type?: SortOrder
+    currency?: SortOrder
     createdAt?: SortOrder
     updatedAt?: SortOrder
   }
@@ -7050,6 +7079,7 @@ export namespace Prisma {
     name: string
     bank?: string | null
     type?: string | null
+    currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
     movements?: MovementCreateNestedManyWithoutAccountInput
@@ -7060,6 +7090,7 @@ export namespace Prisma {
     name: string
     bank?: string | null
     type?: string | null
+    currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
     movements?: MovementUncheckedCreateNestedManyWithoutAccountInput
@@ -7122,6 +7153,7 @@ export namespace Prisma {
     name?: StringFilter<"Account"> | string
     bank?: StringNullableFilter<"Account"> | string | null
     type?: StringNullableFilter<"Account"> | string | null
+    currency?: StringFilter<"Account"> | string
     createdAt?: DateTimeFilter<"Account"> | Date | string
     updatedAt?: DateTimeFilter<"Account"> | Date | string
   }
@@ -7279,6 +7311,7 @@ export namespace Prisma {
     name: string
     bank?: string | null
     type?: string | null
+    currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
     user: UserCreateNestedOneWithoutAccountsInput
@@ -7290,6 +7323,7 @@ export namespace Prisma {
     name: string
     bank?: string | null
     type?: string | null
+    currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -7315,6 +7349,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     bank?: NullableStringFieldUpdateOperationsInput | string | null
     type?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     user?: UserUpdateOneRequiredWithoutAccountsNestedInput
@@ -7326,6 +7361,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     bank?: NullableStringFieldUpdateOperationsInput | string | null
     type?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
@@ -7391,6 +7427,7 @@ export namespace Prisma {
     name: string
     bank?: string | null
     type?: string | null
+    currency?: string
     createdAt?: Date | string
     updatedAt?: Date | string
   }
@@ -7406,6 +7443,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     bank?: NullableStringFieldUpdateOperationsInput | string | null
     type?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     movements?: MovementUpdateManyWithoutAccountNestedInput
@@ -7416,6 +7454,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     bank?: NullableStringFieldUpdateOperationsInput | string | null
     type?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
     movements?: MovementUncheckedUpdateManyWithoutAccountNestedInput
@@ -7426,6 +7465,7 @@ export namespace Prisma {
     name?: StringFieldUpdateOperationsInput | string
     bank?: NullableStringFieldUpdateOperationsInput | string | null
     type?: NullableStringFieldUpdateOperationsInput | string | null
+    currency?: StringFieldUpdateOperationsInput | string
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }

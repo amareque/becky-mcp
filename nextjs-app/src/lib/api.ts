@@ -56,10 +56,13 @@ export interface User {
 
 export interface Account {
   id: string
+  userId: string
   name: string
-  type?: string
   bank?: string
+  type?: string
+  currency: string
   createdAt: string
+  updatedAt: string
 }
 
 export interface Movement {
@@ -86,9 +89,11 @@ export interface RegisterRequest {
 }
 
 export interface CreateAccountRequest {
+  userId?: string
   name: string
   bank?: string
   type?: string
+  currency: string
 }
 
 export interface CreateMovementRequest {
@@ -127,39 +132,45 @@ export const authAPI = {
 
 // Accounts API
 export const accountsAPI = {
-  getAccounts: async () => {
+  getAccounts: async (): Promise<{ accounts: Account[]; count: number }> => {
     const response = await apiClient.get('/accounts')
     return response.data
   },
 
-  createAccount: async (data: CreateAccountRequest) => {
+  createAccount: async (data: CreateAccountRequest): Promise<Account> => {
     const response = await apiClient.post('/accounts', data)
     return response.data
   },
 
-  updateAccount: async (id: string, data: Partial<CreateAccountRequest>) => {
-    const response = await apiClient.patch(`/accounts/${id}`, data)
+  updateAccount: async (accountId: string, data: Partial<CreateAccountRequest>): Promise<Account> => {
+    const response = await apiClient.patch(`/accounts/${accountId}`, data)
     return response.data
   },
 }
 
 // Movements API
 export const movementsAPI = {
-  getMovements: async (accountId?: string, limit = 50) => {
+  getMovements: async (accountId?: string, limit?: number): Promise<{ movements: Movement[]; count: number }> => {
+    const params = new URLSearchParams()
+    if (limit) params.append('limit', limit.toString())
+    
     const url = accountId ? `/movements/account/${accountId}` : '/movements'
-    const response = await apiClient.get(url, {
-      params: { limit }
-    })
+    const response = await apiClient.get(`${url}?${params.toString()}`)
     return response.data
   },
 
-  createMovement: async (data: CreateMovementRequest) => {
+  createMovement: async (data: CreateMovementRequest): Promise<Movement> => {
     const response = await apiClient.post(`/movements/account/${data.accountId}`, data)
     return response.data
   },
 
-  updateMovement: async (id: string, data: Partial<CreateMovementRequest>) => {
-    const response = await apiClient.patch(`/movements/${id}`, data)
+  updateMovement: async (movementId: string, data: Partial<CreateMovementRequest>): Promise<Movement> => {
+    const response = await apiClient.patch(`/movements/${movementId}`, data)
+    return response.data
+  },
+
+  deleteMovement: async (movementId: string): Promise<{ message: string; deletedMovement: any }> => {
+    const response = await apiClient.delete(`/movements/${movementId}`)
     return response.data
   },
 }

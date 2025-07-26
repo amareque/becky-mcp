@@ -321,10 +321,11 @@ server.registerTool("create_account",
         inputSchema: {
             name: z.string(),
             bank: z.string().optional(),
-            type: z.string().optional()
+            type: z.string().optional(),
+            currency: z.string().default("UYU")
         }
     },
-    async ({ name, bank, type }) => {
+    async ({ name, bank, type, currency }) => {
         try {
             // Check if user is authenticated
             if (!authState || !authState.isAuthenticated) {
@@ -359,7 +360,8 @@ server.registerTool("create_account",
                     userId: authState.userId,
                     name,
                     bank,
-                    type
+                    type,
+                    currency
                 })
             });
 
@@ -388,7 +390,7 @@ server.registerTool("create_account",
             return {
                 content: [{
                     type: "text",
-                    text: `Account created successfully! Account ID: ${accountData.id}, Name: ${accountData.name}`
+                    text: `Account created successfully! Account ID: ${accountData.id}, Name: ${accountData.name}, Currency: ${accountData.currency}`
                 }]
             };
         } catch (error) {
@@ -792,6 +794,99 @@ server.registerTool("confirm_movement",
     }
 );
 
+// Delete movement tool
+server.registerTool("delete_movement",
+    {
+        title: "Delete movement",
+        description: "Delete a specific movement by its ID. Use get_movements to see available movements and their IDs.",
+        inputSchema: {
+            movementId: z.string().min(1, "Movement ID is required - use get_movements to see available movements")
+        }
+    },
+    async ({ movementId }) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Make request to your API to delete movement
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/movements/${movementId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                // Handle not found errors
+                if (response.status === 404) {
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Movement not found. Please check the movement ID or use get_movements to see your available movements."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to delete movement: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const deleteData = await response.json();
+            
+            return {
+                content: [{
+                    type: "text",
+                    text: `✅ Movement deleted successfully!\n\nDeleted Movement Details:\n- Movement ID: ${deleteData.deletedMovement.id}\n- Type: ${deleteData.deletedMovement.type}\n- Amount: $${deleteData.deletedMovement.amount.toFixed(2)}\n- Description: ${deleteData.deletedMovement.description}\n- Account: ${deleteData.deletedMovement.accountName}`
+                }]
+            };
+        } catch (error) {
+            console.log('Error deleting movement:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error deleting movement: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
 // Get user accounts tool
 server.registerTool("get_accounts",
     {
@@ -870,6 +965,7 @@ server.registerTool("get_accounts",
                 accountsText += `${index + 1}. **${account.name}**\n`;
                 accountsText += `   - ID: ${account.id}\n`;
                 accountsText += `   - Type: ${account.type || 'Not specified'}\n`;
+                accountsText += `   - Currency: ${account.currency}\n`;
                 if (account.bank) {
                     accountsText += `   - Bank: ${account.bank}\n`;
                 }

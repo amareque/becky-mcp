@@ -135,6 +135,7 @@ exports.Prisma.AccountScalarFieldEnum = {
   name: 'name',
   bank: 'bank',
   type: 'type',
+  currency: 'currency',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };

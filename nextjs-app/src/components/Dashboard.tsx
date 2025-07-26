@@ -316,7 +316,7 @@ export function Dashboard({ className = '' }: DashboardProps) {
               <div key={account.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-medium text-gray-900">{account.name}</h4>
-                  <span className="text-xs text-gray-500">{account.type || 'Account'}</span>
+                  <span className="text-xs text-gray-500">{account.currency}</span>
                 </div>
                 {account.bank && (
                   <p className="text-sm text-gray-600 mb-2">{account.bank}</p>
@@ -372,6 +372,7 @@ function CreateAccountModal({ isOpen, onClose, onSuccess }: CreateAccountModalPr
   const [name, setName] = useState('')
   const [bank, setBank] = useState('')
   const [type, setType] = useState('')
+  const [currency, setCurrency] = useState('UYU')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -383,12 +384,14 @@ function CreateAccountModal({ isOpen, onClose, onSuccess }: CreateAccountModalPr
       await accountsAPI.createAccount({
         name: name.trim(),
         bank: bank.trim() || undefined,
-        type: type.trim() || undefined
+        type: type.trim() || undefined,
+        currency: currency
       })
       toast.success('Account created successfully!')
       setName('')
       setBank('')
       setType('')
+      setCurrency('UYU')
       onSuccess()
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Failed to create account')
@@ -454,6 +457,29 @@ function CreateAccountModal({ isOpen, onClose, onSuccess }: CreateAccountModalPr
             </select>
           </div>
           
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Currency *
+            </label>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="input"
+              required
+            >
+              <option value="UYU">UYU - Uruguayan Peso</option>
+              <option value="USD">USD - US Dollar</option>
+              <option value="EUR">EUR - Euro</option>
+              <option value="GBP">GBP - British Pound</option>
+              <option value="ARS">ARS - Argentine Peso</option>
+              <option value="BRL">BRL - Brazilian Real</option>
+              <option value="CLP">CLP - Chilean Peso</option>
+              <option value="COP">COP - Colombian Peso</option>
+              <option value="MXN">MXN - Mexican Peso</option>
+              <option value="PEN">PEN - Peruvian Sol</option>
+            </select>
+          </div>
+
           <div className="flex gap-3 pt-4">
             <button
               type="button"
