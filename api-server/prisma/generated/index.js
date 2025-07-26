@@ -175,7 +175,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "/Users/agustin/Documents/Personal/becky-mcp/api-server/prisma/generated",
+      "value": "/Users/martinrizzo/Documents/MCP/becky-mcp/api-server/prisma/generated",
       "fromEnvVar": null
     },
     "config": {
@@ -184,16 +184,16 @@ const config = {
     "binaryTargets": [
       {
         "fromEnvVar": null,
-        "value": "darwin-arm64",
+        "value": "darwin",
         "native": true
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/agustin/Documents/Personal/becky-mcp/api-server/prisma/schema.prisma",
+    "sourceFilePath": "/Users/martinrizzo/Documents/MCP/becky-mcp/api-server/prisma/schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
-    "rootEnvPath": "../../.env",
+    "rootEnvPath": null,
     "schemaEnvPath": "../../.env"
   },
   "relativePath": "..",
@@ -251,8 +251,8 @@ exports.PrismaClient = PrismaClient
 Object.assign(exports, Prisma)
 
 // file annotations for bundling tools to include these files
-path.join(__dirname, "libquery_engine-darwin-arm64.dylib.node");
-path.join(process.cwd(), "prisma/generated/libquery_engine-darwin-arm64.dylib.node")
+path.join(__dirname, "libquery_engine-darwin.dylib.node");
+path.join(process.cwd(), "prisma/generated/libquery_engine-darwin.dylib.node")
 // file annotations for bundling tools to include these files
 path.join(__dirname, "schema.prisma");
 path.join(process.cwd(), "prisma/generated/schema.prisma")
