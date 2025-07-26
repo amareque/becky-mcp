@@ -1,0 +1,25 @@
+{
+  "name": "becky-mcp",
+  "version": "1.0.0",
+  "description": "AI-powered personal bookkeeper with custom MCP server",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:nextjs\" \"npm run dev:mcp\"",
+    "dev:nextjs": "cd apps/nextjs-app && npm run dev",
+    "dev:mcp": "cd apps/mcp-server && npm run dev",
+    "build": "npm run build:nextjs && npm run build:mcp",
+    "build:nextjs": "cd apps/nextjs-app && npm run build",
+    "build:mcp": "cd apps/mcp-server && npm run build",
+    "db:generate": "cd prisma && npx prisma generate",
+    "db:push": "cd prisma && npx prisma db push",
+    "db:seed": "cd prisma && npx prisma db seed",
+    "db:studio": "cd prisma && npx prisma studio"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+} 
