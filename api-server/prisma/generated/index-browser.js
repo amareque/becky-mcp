@@ -148,6 +148,14 @@ exports.Prisma.MovementScalarFieldEnum = {
   description: 'description',
   date: 'date',
   category: 'category',
+  isLoan: 'isLoan',
+  loanType: 'loanType',
+  originalAmount: 'originalAmount',
+  participants: 'participants',
+  pendingAmount: 'pendingAmount',
+  relatedPeople: 'relatedPeople',
+  loanStatus: 'loanStatus',
+  relatedMovementId: 'relatedMovementId',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -159,9 +167,26 @@ exports.Prisma.ContextScalarFieldEnum = {
   lastUpdated: 'lastUpdated'
 };
 
+exports.Prisma.ContactScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  name: 'name',
+  phone: 'phone',
+  email: 'email',
+  nickname: 'nickname',
+  notes: 'notes',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.SortOrder = {
   asc: 'asc',
   desc: 'desc'
+};
+
+exports.Prisma.NullableJsonNullValueInput = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull
 };
 
 exports.Prisma.JsonNullValueInput = {
@@ -189,7 +214,8 @@ exports.Prisma.ModelName = {
   User: 'User',
   Account: 'Account',
   Movement: 'Movement',
-  Context: 'Context'
+  Context: 'Context',
+  Contact: 'Contact'
 };
 
 /**
