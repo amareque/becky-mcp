@@ -1,6 +1,9 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
 
 // Create an MCP server
 const server = new McpServer({
@@ -8,8 +11,58 @@ const server = new McpServer({
     version: "1.0.0"
 });
 
+// Auth state file path
+const AUTH_FILE_PATH = path.join(os.homedir(), '.becky_mcp_auth.json');
+
 // Store authentication state in memory (for this session)
 let authState = null;
+
+// Load authentication state from file on startup
+async function loadAuthState() {
+    try {
+        const data = await fs.readFile(AUTH_FILE_PATH, 'utf8');
+        const savedAuth = JSON.parse(data);
+
+        // Check if token is still valid (if you have expiration)
+        if (savedAuth.expiresAt && Date.now() > savedAuth.expiresAt) {
+            console.log('Saved token expired, clearing auth state');
+            await clearAuthState();
+            return null;
+        }
+
+        authState = savedAuth;
+        console.log('Loaded authentication state from file');
+        return authState;
+    } catch (error) {
+        // File doesn't exist or is invalid, that's ok
+        console.log('No saved authentication state found');
+        return null;
+    }
+}
+
+// Save authentication state to file
+async function saveAuthState(auth) {
+    try {
+        await fs.writeFile(AUTH_FILE_PATH, JSON.stringify(auth, null, 2));
+        console.log('Authentication state saved to file');
+    } catch (error) {
+        console.log('Failed to save authentication state:', error);
+    }
+}
+
+// Clear authentication state
+async function clearAuthState() {
+    authState = null;
+    try {
+        await fs.unlink(AUTH_FILE_PATH);
+        console.log('Authentication state cleared');
+    } catch (error) {
+        // File might not exist, that's ok
+    }
+}
+
+// Load auth state on startup
+await loadAuthState();
 
 // Add an addition tool
 server.registerTool("add",
@@ -66,22 +119,22 @@ server.registerTool("login",
                 userEmail: loginData.user.email,
                 userName: loginData.user.name,
                 token: loginData.token,
-                isAuthenticated: true
+                isAuthenticated: true,
+                // Add expiration if your API provides it
+                expiresAt: loginData.expiresAt || (Date.now() + (24 * 60 * 60 * 1000)) // 24 hours default
             };
 
-            // Set state in MCP server for Claude to access
-            await server.setState({
-                auth: authState
-            });
+            // Save to file for persistence
+            await saveAuthState(authState);
 
             return {
                 content: [{
                     type: "text",
-                    text: `Login successful! Welcome back, ${loginData.user.name}. Your user ID is ${loginData.user.id}. You can now use other tools like create_account.`
+                    text: `Login successful! Welcome back, ${loginData.user.name}. Your user ID is ${loginData.user.id}. Authentication state will persist across sessions.`
                 }]
             };
         } catch (error) {
-            console.error('Error during login:', error);
+            console.log('Error during login:', error);
             return {
                 content: [{
                     type: "text",
@@ -89,6 +142,24 @@ server.registerTool("login",
                 }]
             };
         }
+    }
+);
+
+// Add logout tool
+server.registerTool("logout",
+    {
+        title: "Logout from Becky",
+        description: "Clear authentication state and logout",
+        inputSchema: {}
+    },
+    async () => {
+        await clearAuthState();
+        return {
+            content: [{
+                type: "text",
+                text: "Successfully logged out. Authentication state cleared."
+            }]
+        };
     }
 );
 
@@ -111,6 +182,17 @@ server.registerTool("get_user_info",
                 };
             }
 
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
             // Make request to API to get current user info
             const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
             const response = await fetch(`${apiUrl}/users/me`, {
@@ -122,10 +204,21 @@ server.registerTool("get_user_info",
             });
 
             if (!response.ok) {
+                // Token might be invalid, clear state
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
                 return {
                     content: [{
                         type: "text",
-                        text: "Failed to get user info. Please login again."
+                        text: "Failed to get user info. Please try again."
                     }]
                 };
             }
@@ -139,7 +232,7 @@ server.registerTool("get_user_info",
                 }]
             };
         } catch (error) {
-            console.error('Error getting user info:', error);
+            console.log('Error getting user info:', error);
             return {
                 content: [{
                     type: "text",
@@ -172,6 +265,17 @@ server.registerTool("create_account",
                 };
             }
 
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
             // Make request to your API to create account
             const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
             const response = await fetch(`${apiUrl}/accounts`, {
@@ -189,6 +293,17 @@ server.registerTool("create_account",
             });
 
             if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
                 const errorData = await response.json();
                 return {
                     content: [{
@@ -206,7 +321,7 @@ server.registerTool("create_account",
                 }]
             };
         } catch (error) {
-            console.error('Error creating account:', error);
+            console.log('Error creating account:', error);
             return {
                 content: [{
                     type: "text",
@@ -216,24 +331,6 @@ server.registerTool("create_account",
         }
     }
 );
-
-/*
-// Add a dynamic greeting resource
-server.registerResource(
-    "greeting",
-    new ResourceTemplate("greeting://{name}", { list: undefined }),
-    {
-        title: "Greeting Resource",      // Display name for UI
-        description: "Dynamic greeting generator"
-    },
-    async (uri, { name }) => ({
-        contents: [{
-            uri: uri.href,
-            text: `Hello, ${name}!`
-        }]
-    })
-);
-*/
 
 // Start receiving messages on stdin and sending messages on stdout
 const transport = new StdioServerTransport();
