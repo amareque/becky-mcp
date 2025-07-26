@@ -9,6 +9,8 @@ import { chatRouter } from './routes/chat'
 import { contactsRouter } from './routes/contacts'
 import { loansRouter } from './routes/loans'
 import { receiptsRouter } from './routes/receipts'
+import reportsRouter from './routes/reports'
+import schedulerService from './services/schedulerService'
 
 dotenv.config()
 
@@ -28,6 +30,7 @@ app.use('/chat', chatRouter)
 app.use('/contacts', contactsRouter)
 app.use('/loans', loansRouter)
 app.use('/receipts', receiptsRouter)
+app.use('/reports', reportsRouter)
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -47,7 +50,14 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   })
 })
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Becky API Server running on port ${PORT}`)
   console.log(`📡 Health check: http://localhost:${PORT}/`)
+  
+  // Inicializar scheduler de reportes automáticos
+  try {
+    await schedulerService.initializeScheduler()
+  } catch (error) {
+    console.error('❌ Error inicializando scheduler:', error)
+  }
 }) 

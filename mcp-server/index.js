@@ -2128,6 +2128,512 @@ server.registerTool("extract_receipt_data",
     }
 );
 
+// Send email report now
+server.registerTool("send_email_report",
+    {
+        title: "Send email report now",
+        description: "Send an email report immediately (loans summary or weekly summary)",
+        inputSchema: {
+            reportType: z.enum(["loans_summary", "weekly_summary"], {
+                errorMap: () => ({ message: "Report type must be either 'loans_summary' or 'weekly_summary'" })
+            })
+        }
+    },
+    async ({ reportType }) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Send the report
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/reports/send-now`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    reportType
+                })
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to send email report: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const responseData = await response.json();
+            
+            const reportName = reportType === 'loans_summary' ? 'Resumen de Préstamos' : 'Resumen Semanal';
+            
+            return {
+                content: [{
+                    type: "text",
+                    text: `📧 ¡Email enviado exitosamente!\n\n📊 **Reporte**: ${reportName}\n📮 **Destinatario**: ${authState.userEmail}\n\n✅ El reporte ha sido enviado a tu correo electrónico. Revisa tu bandeja de entrada (y spam si no lo encuentras).`
+                }]
+            };
+        } catch (error) {
+            console.log('Error sending email report:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error sending email report: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Configure automatic email reports
+server.registerTool("configure_email_reports",
+    {
+        title: "Configure automatic email reports",
+        description: "Set up automatic email reports (weekly, daily, etc.)",
+        inputSchema: {
+            reportType: z.enum(["loans_summary", "weekly_summary"], {
+                errorMap: () => ({ message: "Report type must be either 'loans_summary' or 'weekly_summary'" })
+            }),
+            frequency: z.enum(["daily", "weekly", "monthly"], {
+                errorMap: () => ({ message: "Frequency must be 'daily', 'weekly', or 'monthly'" })
+            }),
+            isActive: z.boolean().optional().default(true)
+        }
+    },
+    async ({ reportType, frequency, isActive }) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Configure the report
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/reports`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    reportType,
+                    frequency,
+                    config: {
+                        isActive
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to configure email report: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const reportData = await response.json();
+            
+            const reportName = reportType === 'loans_summary' ? 'Resumen de Préstamos' : 'Resumen Semanal';
+            const frequencyText = frequency === 'daily' ? 'diariamente' : frequency === 'weekly' ? 'semanalmente' : 'mensualmente';
+            
+            let responseText = `⚙️ **Reporte automático configurado**\n\n`;
+            responseText += `📊 **Tipo**: ${reportName}\n`;
+            responseText += `⏰ **Frecuencia**: Se enviará ${frequencyText}\n`;
+            responseText += `📮 **Email**: ${authState.userEmail}\n`;
+            responseText += `🆔 **ID del reporte**: ${reportData.id}\n`;
+            
+            if (frequency === 'weekly') {
+                responseText += `\n📅 **Nota**: Los reportes semanales se envían todos los lunes a las 9:00 AM.`;
+            } else if (frequency === 'daily') {
+                responseText += `\n📅 **Nota**: Los reportes diarios se envían todos los días a las 8:00 AM.`;
+            }
+            
+            responseText += `\n\n✅ ¡Configuración guardada! Comenzarás a recibir reportes automáticamente.`;
+
+            return {
+                content: [{
+                    type: "text",
+                    text: responseText
+                }]
+            };
+        } catch (error) {
+            console.log('Error configuring email report:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error configuring email report: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Get configured email reports
+server.registerTool("get_email_reports",
+    {
+        title: "Get email reports configuration",
+        description: "See all configured automatic email reports",
+        inputSchema: {}
+    },
+    async () => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Get reports configuration
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/reports`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to get email reports: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const reports = await response.json();
+            
+            if (!reports || reports.length === 0) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "📧 No tienes reportes automáticos configurados.\n\n💡 **Sugerencia**: Usa configure_email_reports para configurar reportes automáticos.\n\nPuedes configurar:\n- 📊 Resumen de préstamos (diario/semanal/mensual)\n- 📈 Resumen semanal de finanzas"
+                    }]
+                };
+            }
+
+            let responseText = `📧 **Reportes automáticos configurados** (${reports.length}):\n\n`;
+            
+            reports.forEach((report, index) => {
+                const reportName = report.reportType === 'loans_summary' ? 'Resumen de Préstamos' : 'Resumen Semanal';
+                const frequencyText = report.frequency === 'daily' ? 'Diario' : report.frequency === 'weekly' ? 'Semanal' : 'Mensual';
+                const statusEmoji = report.isActive ? '✅' : '❌';
+                const statusText = report.isActive ? 'Activo' : 'Inactivo';
+                
+                responseText += `${index + 1}. ${statusEmoji} **${reportName}**\n`;
+                responseText += `   - Frecuencia: ${frequencyText}\n`;
+                responseText += `   - Estado: ${statusText}\n`;
+                responseText += `   - ID: ${report.id}\n`;
+                
+                if (report.lastSent) {
+                    const lastSent = new Date(report.lastSent).toLocaleDateString('es-ES');
+                    responseText += `   - Último envío: ${lastSent}\n`;
+                }
+                
+                if (report.nextSend) {
+                    const nextSend = new Date(report.nextSend).toLocaleDateString('es-ES');
+                    responseText += `   - Próximo envío: ${nextSend}\n`;
+                }
+                
+                responseText += `\n`;
+            });
+            
+            responseText += `💡 **Comandos útiles**:\n`;
+            responseText += `- toggle_email_report: Activar/desactivar reporte\n`;
+            responseText += `- send_email_report: Enviar reporte ahora\n`;
+            responseText += `- test_email: Probar configuración de email`;
+
+            return {
+                content: [{
+                    type: "text",
+                    text: responseText
+                }]
+            };
+        } catch (error) {
+            console.log('Error getting email reports:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error getting email reports: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Toggle email report status
+server.registerTool("toggle_email_report",
+    {
+        title: "Toggle email report status",
+        description: "Activate or deactivate an automatic email report",
+        inputSchema: {
+            reportId: z.string().min(1, "Report ID is required"),
+            isActive: z.boolean()
+        }
+    },
+    async ({ reportId, isActive }) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Toggle report status
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/reports/${reportId}/toggle`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    isActive
+                })
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                // Handle not found errors
+                if (response.status === 404) {
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Report not found. Please check the report ID or use get_email_reports to see your configured reports."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to toggle report status: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const reportData = await response.json();
+            
+            const statusEmoji = isActive ? '✅' : '❌';
+            const statusText = isActive ? 'activado' : 'desactivado';
+            const actionText = isActive ? 'comenzarás a recibir' : 'dejarás de recibir';
+            
+            return {
+                content: [{
+                    type: "text",
+                    text: `${statusEmoji} **Reporte ${statusText} exitosamente**\n\n📊 **Reporte ID**: ${reportId}\n\n💡 **Resultado**: Ahora ${actionText} este reporte automáticamente.`
+                }]
+            };
+        } catch (error) {
+            console.log('Error toggling email report:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error toggling email report: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Test email configuration
+server.registerTool("test_email",
+    {
+        title: "Test email configuration",
+        description: "Send a test email to verify email configuration is working",
+        inputSchema: {}
+    },
+    async () => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Send test email
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/reports/test-email`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to send test email: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const responseData = await response.json();
+            
+            return {
+                content: [{
+                    type: "text",
+                    text: `✅ **Email de prueba enviado exitosamente**\n\n📮 **Destinatario**: ${authState.userEmail}\n\n🔍 **Qué revisar**:\n- Verifica tu bandeja de entrada\n- Revisa la carpeta de spam/correo no deseado\n- El email debería llegar en unos minutos\n\n💡 Si no recibes el email, revisa la configuración SMTP en las variables de entorno del servidor.`
+                }]
+            };
+        } catch (error) {
+            console.log('Error sending test email:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error sending test email: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
 // Create expense from manual data (when AI extraction needs correction)
 server.registerTool("create_expense_from_receipt_manual",
     {
