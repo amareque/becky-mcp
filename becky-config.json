@@ -1,0 +1,8 @@
+{
+  "Becky": {
+    "command": "node",
+    "args": [
+      "/Users/agustin/Documents/Personal/becky-mcp/mcp-server/index.js"
+    ]
+  }
+}
