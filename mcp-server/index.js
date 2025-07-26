@@ -1103,6 +1103,169 @@ server.registerTool("update_movement",
     }
 );
 
+// Register tool to get actual USD currency from UYU
+server.registerTool("convert_movement_currency",
+    {
+        title: "Switch currency of movement",
+        description: "Get the currency of a movement or balance from UYU to USD",
+        inputSchema: {}
+    },
+    async (params) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Make request to API to get current user info
+            const apiUrl = process.env.API_SERVER_URL || 'https://uy.dolarapi.com';
+            const response = await fetch(`${apiUrl}/v1/cotizaciones/usd`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                // Token might be invalid, clear state
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Failed to get latest currency. Please try again."
+                    }]
+                };
+            }
+
+            const latestCurrency = await response.json();
+
+            return {
+                content: [{
+                    type: "text",
+                    text: `Current UYU/USD exchange: ${latestCurrency.venta}`
+                }]
+            };
+        } catch (error) {
+            console.log('Error getting USD currency:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error getting USD currency: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+//Register tool to fetch stocks
+server.registerTool("get_stocks",
+    {
+        title: "Get stocks",
+        description: "Fetch stock prices for a given stock symbol",
+        inputSchema: {
+            symbol: z.string().min(1, "Stock symbol is required")
+        }
+    },
+    async ({ symbol }) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Make request to your API to get stock prices
+            const apiUrl = process.env.API_SERVER_URL || 'https://query1.finance.yahoo.com';
+            const response = await fetch(`${apiUrl}/v7/finance/quote?symbols=${symbol}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to get stock prices: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const stockData = await response.json();
+            
+            return {
+                content: [{
+                    type: "text",
+                    text: `Current price of ${symbol}: $${stockData.price}`
+                }]
+            };
+        } catch (error) {
+            console.log('Error getting stock prices:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error getting stock prices: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
 // Start receiving messages on stdin and sending messages on stdout
 const transport = new StdioServerTransport();
 await server.connect(transport);
