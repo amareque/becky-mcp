@@ -4,7 +4,7 @@ import dotenv from 'dotenv'
 import { chatRouter } from './routes/chat'
 import { healthRouter } from './routes/health'
 
-dotenv.config()
+dotenv.config({ path: '../../.env' })
 
 const app = express()
 const PORT = process.env.MCP_SERVER_PORT || 3001

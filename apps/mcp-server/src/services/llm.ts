@@ -19,13 +19,14 @@ interface LLMRequest {
   toolFunctions: ToolFunction
 }
 
+console.log(process.env.OPENA_API_KEY)
 // Initialize LLM clients
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+  apiKey: 'test',
 })
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: 'test',
 })
 
 export async function runBeckyLLM(request: LLMRequest): Promise<string> {

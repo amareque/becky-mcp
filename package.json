@@ -14,12 +14,19 @@
     "build": "npm run build:nextjs && npm run build:mcp",
     "build:nextjs": "cd apps/nextjs-app && npm run build",
     "build:mcp": "cd apps/mcp-server && npm run build",
-    "db:generate": "cd prisma && npx prisma generate",
-    "db:push": "cd prisma && npx prisma db push",
-    "db:seed": "cd prisma && npx prisma db seed",
-    "db:studio": "cd prisma && npx prisma studio"
+    "db:generate": "npx prisma generate",
+    "db:push": "npx prisma migrate dev",
+    "db:seed": "npx tsx prisma/seed.ts",
+    "db:studio": "npx prisma studio"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "prisma": "^6.12.0",
+    "tsx": "^4.20.3"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.12.0",
+    "bcrypt": "^6.0.0",
+    "ts-node": "^10.9.2"
   }
-} 
+}
