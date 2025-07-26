@@ -6,6 +6,9 @@ import { usersRouter } from './routes/users'
 import { accountsRouter } from './routes/accounts'
 import { movementsRouter } from './routes/movements'
 import { chatRouter } from './routes/chat'
+import { contactsRouter } from './routes/contacts'
+import { loansRouter } from './routes/loans'
+import { receiptsRouter } from './routes/receipts'
 
 dotenv.config()
 
@@ -22,6 +25,9 @@ app.use('/users', usersRouter)
 app.use('/accounts', accountsRouter)
 app.use('/movements', movementsRouter)
 app.use('/chat', chatRouter)
+app.use('/contacts', contactsRouter)
+app.use('/loans', loansRouter)
+app.use('/receipts', receiptsRouter)
 
 // Root endpoint
 app.get('/', (req, res) => {

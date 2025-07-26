@@ -1103,6 +1103,1163 @@ server.registerTool("update_movement",
     }
 );
 
+// Create contact tool
+server.registerTool("create_contact",
+    {
+        title: "Create contact",
+        description: "Create a new contact for loan tracking",
+        inputSchema: {
+            name: z.string().min(1, "Name is required"),
+            phone: z.string().optional(),
+            email: z.string().email().optional(),
+            nickname: z.string().optional(),
+            notes: z.string().optional()
+        }
+    },
+    async ({ name, phone, email, nickname, notes }) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Make request to API to create contact
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/contacts`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name,
+                    phone,
+                    email,
+                    nickname,
+                    notes
+                })
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to create contact: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const contactData = await response.json();
+            
+            let responseText = `Contact created successfully!\n\nDetails:\n- Contact ID: ${contactData.id}\n- Name: ${contactData.name}`;
+            
+            if (contactData.nickname) {
+                responseText += `\n- Nickname: ${contactData.nickname}`;
+            }
+            
+            if (contactData.phone) {
+                responseText += `\n- Phone: ${contactData.phone}`;
+            }
+            
+            if (contactData.email) {
+                responseText += `\n- Email: ${contactData.email}`;
+            }
+            
+            if (contactData.notes) {
+                responseText += `\n- Notes: ${contactData.notes}`;
+            }
+
+            return {
+                content: [{
+                    type: "text",
+                    text: responseText
+                }]
+            };
+        } catch (error) {
+            console.log('Error creating contact:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error creating contact: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Get contacts tool
+server.registerTool("get_contacts",
+    {
+        title: "Get contacts",
+        description: "Get all contacts for loan tracking",
+        inputSchema: {}
+    },
+    async () => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Make request to API to get contacts
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/contacts`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to get contacts: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const contactsData = await response.json();
+            
+            if (!contactsData.contacts || contactsData.contacts.length === 0) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You don't have any contacts yet. Use the create_contact tool to add contacts for loan tracking."
+                    }]
+                };
+            }
+
+            // Format the contacts list
+            let contactsText = `You have ${contactsData.contacts.length} contact(s):\n\n`;
+            contactsData.contacts.forEach((contact, index) => {
+                contactsText += `${index + 1}. **${contact.name}**\n`;
+                contactsText += `   - ID: ${contact.id}\n`;
+                if (contact.nickname) {
+                    contactsText += `   - Nickname: ${contact.nickname}\n`;
+                }
+                if (contact.phone) {
+                    contactsText += `   - Phone: ${contact.phone}\n`;
+                }
+                if (contact.email) {
+                    contactsText += `   - Email: ${contact.email}\n`;
+                }
+                if (contact.notes) {
+                    contactsText += `   - Notes: ${contact.notes}\n`;
+                }
+                contactsText += `\n`;
+            });
+
+            return {
+                content: [{
+                    type: "text",
+                    text: contactsText
+                }]
+            };
+        } catch (error) {
+            console.log('Error getting contacts:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error getting contacts: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Create shared expense tool
+server.registerTool("create_shared_expense",
+    {
+        title: "Create shared expense",
+        description: "Create a shared expense (like photocopies split among friends). Example: spent 100 pesos for photocopies among 5 people",
+        inputSchema: {
+            accountId: z.string().min(1, "Account ID is required"),
+            totalAmount: z.number().positive("Total amount must be positive"),
+            participants: z.number().min(2, "Must have at least 2 participants"),
+            description: z.string().min(1, "Description is required"),
+            date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+            category: z.string().optional(),
+            concept: z.enum(["needs", "wants", "savings", "others"]).optional().default("others"),
+            participantsList: z.array(z.string()).optional()
+        }
+    },
+    async ({ accountId, totalAmount, participants, description, date, category, concept, participantsList }) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Validate date format
+            const expenseDate = new Date(date);
+            if (isNaN(expenseDate.getTime())) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Invalid date format. Please use YYYY-MM-DD format (e.g., 2024-01-15)."
+                    }]
+                };
+            }
+
+            // Make request to API to create shared expense
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/loans/shared-expense`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    accountId,
+                    totalAmount,
+                    participants,
+                    description,
+                    date,
+                    category,
+                    concept,
+                    participantsList
+                })
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                // Handle not found errors
+                if (response.status === 404) {
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Account not found. Please check the account ID or use get_accounts to see your available accounts."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to create shared expense: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const responseData = await response.json();
+            
+            const myShare = responseData.summary.myShare.toFixed(2);
+            const pendingAmount = responseData.summary.pendingAmount.toFixed(2);
+            
+            let responseText = `✅ Shared expense created successfully!\n\n📊 **Summary:**\n- Total spent: ${totalAmount.toFixed(2)}\n- Your share: ${myShare}\n- Amount others owe you: ${pendingAmount}\n- Split among: ${participants} people\n- Description: ${description}\n\n💰 **What happened:**\n- Created expense for your part (${myShare})\n- Created pending income for what others owe (${pendingAmount})`;
+            
+            if (participantsList && participantsList.length > 0) {
+                responseText += `\n\n👥 **Participants:** ${participantsList.join(', ')}`;
+            }
+
+            return {
+                content: [{
+                    type: "text",
+                    text: responseText
+                }]
+            };
+        } catch (error) {
+            console.log('Error creating shared expense:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error creating shared expense: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Create simple loan tool
+server.registerTool("create_simple_loan",
+    {
+        title: "Create simple loan",
+        description: "Record money you lent to someone or someone lent to you",
+        inputSchema: {
+            accountId: z.string().min(1, "Account ID is required"),
+            amount: z.number().positive("Amount must be positive"),
+            loanType: z.enum(["lent", "borrowed"], {
+                errorMap: () => ({ message: "Loan type must be either 'lent' (you gave money) or 'borrowed' (you received money)" })
+            }),
+            description: z.string().min(1, "Description is required"),
+            date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+            category: z.string().optional().default("loan"),
+            relatedPerson: z.string().optional()
+        }
+    },
+    async ({ accountId, amount, loanType, description, date, category, relatedPerson }) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Validate date format
+            const loanDate = new Date(date);
+            if (isNaN(loanDate.getTime())) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Invalid date format. Please use YYYY-MM-DD format (e.g., 2024-01-15)."
+                    }]
+                };
+            }
+
+            // Make request to API to create simple loan
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/loans/simple-loan`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    accountId,
+                    amount,
+                    loanType,
+                    description,
+                    date,
+                    category,
+                    relatedPerson
+                })
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                // Handle not found errors
+                if (response.status === 404) {
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Account not found. Please check the account ID or use get_accounts to see your available accounts."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to create loan: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const responseData = await response.json();
+            
+            const emoji = loanType === 'lent' ? '💸' : '💰';
+            const action = loanType === 'lent' ? 'lent to' : 'borrowed from';
+            
+            let responseText = `${emoji} **Loan recorded successfully!**\n\n📊 **Details:**\n- Amount: ${amount.toFixed(2)}\n- Type: You ${action} someone\n- Description: ${description}\n- Date: ${date}`;
+            
+            if (relatedPerson) {
+                responseText += `\n- Person: ${relatedPerson}`;
+            }
+            
+            responseText += `\n\n💡 **Note:** This loan is now tracked as ${loanType === 'lent' ? 'money owed to you' : 'money you owe'}. Use get_pending_loans to see all your active loans.`;
+
+            return {
+                content: [{
+                    type: "text",
+                    text: responseText
+                }]
+            };
+        } catch (error) {
+            console.log('Error creating simple loan:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error creating simple loan: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Get pending loans tool
+server.registerTool("get_pending_loans",
+    {
+        title: "Get pending loans",
+        description: "Get all pending loans (money you lent or borrowed that hasn't been settled)",
+        inputSchema: {}
+    },
+    async () => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Make request to API to get pending loans
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/loans/pending`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to get pending loans: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const loansData = await response.json();
+            
+            if (!loansData.loans || loansData.loans.length === 0) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You don't have any pending loans. All your loans are settled! 🎉"
+                    }]
+                };
+            }
+
+            // Format the loans list
+            let loansText = `💰 **Pending Loans Summary:**\n\n`;
+            loansText += `📊 **Totals:**\n`;
+            loansText += `- Money owed TO you: ${loansData.summary.totalLent.toFixed(2)}\n`;
+            loansText += `- Money you OWE: ${loansData.summary.totalBorrowed.toFixed(2)}\n`;
+            loansText += `- Net balance: ${loansData.summary.netBalance.toFixed(2)} ${loansData.summary.netBalance >= 0 ? '(in your favor)' : '(you owe)'}\n\n`;
+            
+            loansText += `📋 **Individual Loans (${loansData.loans.length}):**\n\n`;
+            
+            loansData.loans.forEach((loan, index) => {
+                const emoji = loan.loanType === 'lent' || loan.loanType === 'shared' ? '💸' : '💰';
+                const typeText = loan.loanType === 'lent' ? 'You lent' : loan.loanType === 'borrowed' ? 'You borrowed' : 'Shared expense';
+                const pendingAmount = loan.pendingAmount || 0;
+                const dateText = new Date(loan.date).toLocaleDateString();
+                
+                loansText += `${index + 1}. ${emoji} **${typeText}**: ${pendingAmount.toFixed(2)}\n`;
+                loansText += `   - Description: ${loan.description}\n`;
+                loansText += `   - Date: ${dateText}\n`;
+                
+                if (loan.loanType === 'shared' && loan.originalAmount) {
+                    loansText += `   - Original total: ${loan.originalAmount.toFixed(2)} (${loan.participants} people)\n`;
+                }
+                
+                if (loan.relatedPeople && Array.isArray(loan.relatedPeople) && loan.relatedPeople.length > 0) {
+                    loansText += `   - People: ${loan.relatedPeople.join(', ')}\n`;
+                }
+                
+                loansText += `   - Loan ID: ${loan.id}\n\n`;
+            });
+            
+            loansText += `💡 **Tip:** Use settle_loan tool to mark loans as paid when you receive/pay money.`;
+
+            return {
+                content: [{
+                    type: "text",
+                    text: loansText
+                }]
+            };
+        } catch (error) {
+            console.log('Error getting pending loans:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error getting pending loans: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Settle loan tool
+server.registerTool("settle_loan",
+    {
+        title: "Settle loan",
+        description: "Mark a loan as paid (fully or partially)",
+        inputSchema: {
+            movementId: z.string().min(1, "Movement ID (loan ID) is required"),
+            amountPaid: z.number().positive().optional(),
+            description: z.string().optional()
+        }
+    },
+    async ({ movementId, amountPaid, description }) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Make request to API to settle loan
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/loans/${movementId}/settle`, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    amountPaid,
+                    description
+                })
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                // Handle not found errors
+                if (response.status === 404) {
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Loan not found. Please check the loan ID or use get_pending_loans to see your active loans."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to settle loan: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const responseData = await response.json();
+            
+            const emoji = responseData.status === 'settled' ? '✅' : '⏳';
+            const statusText = responseData.status === 'settled' ? 'FULLY SETTLED' : 'PARTIALLY PAID';
+            
+            let responseText = `${emoji} **Loan settlement recorded!**\n\n📊 **Settlement Details:**\n- Amount paid: ${(amountPaid || 0).toFixed(2)}\n- Remaining amount: ${responseData.remainingAmount.toFixed(2)}\n- Status: ${statusText}`;
+            
+            if (responseData.status === 'settled') {
+                responseText += `\n\n🎉 **Congratulations!** This loan is now fully settled.`;
+            } else {
+                responseText += `\n\n💡 **Note:** There's still ${responseData.remainingAmount.toFixed(2)} pending for this loan.`;
+            }
+
+            return {
+                content: [{
+                    type: "text",
+                    text: responseText
+                }]
+            };
+        } catch (error) {
+            console.log('Error settling loan:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error settling loan: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Process receipt image tool
+server.registerTool("process_receipt_image",
+    {
+        title: "Process receipt image",
+        description: "Extract expense data from receipt/invoice images and create movement automatically",
+        inputSchema: {
+            imageBase64: z.string().min(1, "Base64 image data is required"),
+            accountId: z.string().min(1, "Account ID is required"),
+            mimeType: z.string().optional().default("image/jpeg"),
+            autoCreate: z.boolean().optional().default(false)
+        }
+    },
+    async ({ imageBase64, accountId, mimeType, autoCreate }) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Step 1: Process the image to extract data
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const extractResponse = await fetch(`${apiUrl}/receipts/extract-receipt-data`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    imageBase64,
+                    mimeType
+                })
+            });
+
+            if (!extractResponse.ok) {
+                // Handle auth errors
+                if (extractResponse.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                const errorData = await extractResponse.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to process image: ${errorData.error || extractResponse.statusText}`
+                    }]
+                };
+            }
+
+            const extractData = await extractResponse.json();
+            const { extractedData } = extractData;
+
+            // If auto-create is false, just return the extracted data for review
+            if (!autoCreate) {
+                let responseText = `📸 **Imagen procesada exitosamente**\n\n`;
+                responseText += `🔍 **Datos extraídos:**\n`;
+                
+                if (extractedData.amount) {
+                    responseText += `- 💰 Monto: ${extractedData.amount}\n`;
+                }
+                if (extractedData.merchant) {
+                    responseText += `- 🏪 Comercio: ${extractedData.merchant}\n`;
+                }
+                if (extractedData.date) {
+                    responseText += `- 📅 Fecha: ${extractedData.date}\n`;
+                }
+                if (extractedData.category) {
+                    responseText += `- 📂 Categoría sugerida: ${extractedData.category}\n`;
+                }
+                
+                responseText += `\n📊 **Confianza del AI**: ${(extractedData.confidence * 100).toFixed(1)}%\n`;
+                
+                if (extractedData.needsReview) {
+                    responseText += `\n⚠️ **Se recomienda revisar los datos antes de crear el gasto.**\n`;
+                    responseText += `\n💡 Para crear el gasto automáticamente, usa: process_receipt_image con autoCreate=true`;
+                } else {
+                    responseText += `\n✅ **Los datos se ven correctos. Listo para crear el gasto.**`;
+                }
+
+                return {
+                    content: [{
+                        type: "text",
+                        text: responseText
+                    }]
+                };
+            }
+
+            // If auto-create is true, create the expense automatically
+            if (!extractedData.amount || !extractedData.merchant) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "❌ No se pudo extraer información suficiente de la imagen para crear el gasto automáticamente. Monto y comercio son requeridos."
+                    }]
+                };
+            }
+
+            // Create the expense
+            const createResponse = await fetch(`${apiUrl}/receipts/create-expense-from-receipt`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    accountId,
+                    amount: extractedData.amount,
+                    merchant: extractedData.merchant,
+                    date: extractedData.date || new Date().toISOString().split('T')[0],
+                    category: extractedData.category || 'receipt',
+                    concept: 'others',
+                    extractedData
+                })
+            });
+
+            if (!createResponse.ok) {
+                const errorData = await createResponse.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to create expense: ${errorData.error || createResponse.statusText}`
+                    }]
+                };
+            }
+
+            const createData = await createResponse.json();
+            
+            let responseText = `✅ **Gasto creado automáticamente desde imagen**\n\n`;
+            responseText += `📊 **Detalles del gasto:**\n`;
+            responseText += `- 💰 Monto: ${createData.movement.amount}\n`;
+            responseText += `- 🏪 Comercio: ${extractedData.merchant}\n`;
+            responseText += `- 📅 Fecha: ${createData.movement.date.split('T')[0]}\n`;
+            responseText += `- 📂 Categoría: ${createData.movement.category}\n`;
+            responseText += `- 🏦 Cuenta: ${accountId}\n`;
+            responseText += `- 🆔 ID del movimiento: ${createData.movement.id}\n`;
+            
+            responseText += `\n🎯 **Procesamiento de imagen exitoso!**`;
+
+            return {
+                content: [{
+                    type: "text",
+                    text: responseText
+                }]
+            };
+        } catch (error) {
+            console.log('Error processing receipt image:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error processing receipt image: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Extract data from receipt tool (without creating expense)
+server.registerTool("extract_receipt_data",
+    {
+        title: "Extract data from receipt",
+        description: "Extract data from receipt/invoice image without creating expense (for review)",
+        inputSchema: {
+            imageBase64: z.string().min(1, "Base64 image data is required"),
+            mimeType: z.string().optional().default("image/jpeg")
+        }
+    },
+    async ({ imageBase64, mimeType }) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Extract data from image
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/receipts/extract-receipt-data`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    imageBase64,
+                    mimeType
+                })
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to extract receipt data: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const data = await response.json();
+            const { extractedData } = data;
+            
+            let responseText = `📸 **Análisis de imagen completado**\n\n`;
+            responseText += `🔍 **Datos extraídos:**\n`;
+            
+            if (extractedData.amount) {
+                responseText += `- 💰 **Monto**: ${extractedData.amount}\n`;
+            } else {
+                responseText += `- 💰 **Monto**: No detectado\n`;
+            }
+            
+            if (extractedData.merchant) {
+                responseText += `- 🏪 **Comercio**: ${extractedData.merchant}\n`;
+            } else {
+                responseText += `- 🏪 **Comercio**: No detectado\n`;
+            }
+            
+            if (extractedData.date) {
+                responseText += `- 📅 **Fecha**: ${extractedData.date}\n`;
+            } else {
+                responseText += `- 📅 **Fecha**: No detectada\n`;
+            }
+            
+            if (extractedData.category) {
+                responseText += `- 📂 **Categoría sugerida**: ${extractedData.category}\n`;
+            }
+            
+            if (extractedData.items && extractedData.items.length > 0) {
+                responseText += `- 🛍️ **Items detectados**: ${extractedData.items.length} productos\n`;
+            }
+            
+            responseText += `\n📊 **Confianza del AI**: ${(extractedData.confidence * 100).toFixed(1)}%\n`;
+            
+            if (extractedData.rawText) {
+                responseText += `\n📝 **Texto detectado**:\n${extractedData.rawText.substring(0, 200)}${extractedData.rawText.length > 200 ? '...' : ''}\n`;
+            }
+            
+            if (extractedData.needsReview) {
+                responseText += `\n⚠️ **Recomendación**: Revisar los datos antes de crear el gasto.\n`;
+            } else {
+                responseText += `\n✅ **Los datos se ven correctos.**\n`;
+            }
+            
+            responseText += `\n💡 **Siguiente paso**: Usar process_receipt_image para crear el gasto automáticamente.`;
+
+            return {
+                content: [{
+                    type: "text",
+                    text: responseText
+                }]
+            };
+        } catch (error) {
+            console.log('Error extracting receipt data:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error extracting receipt data: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Create expense from manual data (when AI extraction needs correction)
+server.registerTool("create_expense_from_receipt_manual",
+    {
+        title: "Create expense from receipt (manual data)",
+        description: "Create expense from receipt with manually corrected data",
+        inputSchema: {
+            accountId: z.string().min(1, "Account ID is required"),
+            amount: z.number().positive("Amount must be positive"),
+            merchant: z.string().min(1, "Merchant name is required"),
+            date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+            category: z.string().optional().default("receipt"),
+            concept: z.enum(["needs", "wants", "savings", "others"]).optional().default("others"),
+            notes: z.string().optional()
+        }
+    },
+    async ({ accountId, amount, merchant, date, category, concept, notes }) => {
+        try {
+            // Check if user is authenticated
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            // Check token expiration
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Create the expense
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/receipts/create-expense-from-receipt`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    accountId,
+                    amount,
+                    merchant,
+                    date,
+                    category,
+                    concept,
+                    extractedData: {
+                        amount,
+                        merchant,
+                        date,
+                        category,
+                        confidence: 1.0, // Manual entry = 100% confidence
+                        needsReview: false,
+                        notes
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                // Handle auth errors
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                // Handle not found errors
+                if (response.status === 404) {
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Account not found. Please check the account ID or use get_accounts to see your available accounts."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to create expense: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const data = await response.json();
+            
+            let responseText = `✅ **Gasto creado exitosamente desde recibo**\n\n`;
+            responseText += `📊 **Detalles:**\n`;
+            responseText += `- 💰 Monto: ${amount.toFixed(2)}\n`;
+            responseText += `- 🏪 Comercio: ${merchant}\n`;
+            responseText += `- 📅 Fecha: ${date}\n`;
+            responseText += `- 📂 Categoría: ${category}\n`;
+            responseText += `- 🏷️ Concepto: ${concept}\n`;
+            responseText += `- 🏦 Cuenta: ${accountId}\n`;
+            responseText += `- 🆔 Movement ID: ${data.movement.id}\n`;
+            
+            if (notes) {
+                responseText += `- 📝 Notas: ${notes}\n`;
+            }
+            
+            responseText += `\n🎯 **Gasto registrado correctamente!**`;
+
+            return {
+                content: [{
+                    type: "text",
+                    text: responseText
+                }]
+            };
+        } catch (error) {
+            console.log('Error creating expense from receipt manual:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error creating expense: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
 // Start receiving messages on stdin and sending messages on stdout
 const transport = new StdioServerTransport();
 await server.connect(transport);
