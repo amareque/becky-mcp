@@ -407,22 +407,244 @@ server.registerTool("create_account",
 server.registerTool("create_movement",
     {
         title: "Create movement",
-        description: "Create a new income or expense movement for an account",
+        description: "Create a new income or expense movement for an account. ⚠️ CRITICAL RULES: 1) NEVER guess amounts - always ask the user for exact amounts, 2) NEVER assume dates - ask for specific dates, 3) NEVER use vague descriptions - ask for detailed descriptions, 4) ALWAYS confirm all details with the user before creating, 5) If any information seems like a guess or placeholder, ask the user to provide the exact information.",
         inputSchema: {
-            accountId: z.string().min(1, "Account ID is required"),
+            accountId: z.string().min(1, "Account ID is required - use get_accounts to see available accounts"),
             type: z.enum(["income", "expense"], {
-                errorMap: () => ({ message: "Type must be either 'income' or 'expense'" })
+                errorMap: () => ({ message: "Type must be explicitly set to either 'income' or 'expense' - ask the user which type this is" })
             }),
             concept: z.enum(["needs", "wants", "savings", "others"], {
-                errorMap: () => ({ message: "Concept must be one of: needs, wants, savings, others" })
+                errorMap: () => ({ message: "Concept must be explicitly set to one of: needs, wants, savings, others - ask the user to categorize this expense" })
             }).optional(),
-            amount: z.number().positive("Amount must be a positive number"),
-            description: z.string().min(1, "Description is required").max(500, "Description must be less than 500 characters"),
-            date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
-            category: z.string().optional()
+            amount: z.number()
+                .positive("Amount must be a positive number")
+                .refine(val => val !== 1 && val !== 10 && val !== 100 && val !== 1000, {
+                    message: "This looks like a placeholder amount. Please ask the user for the exact amount."
+                })
+                .refine(val => !Number.isInteger(val) || val < 10000, {
+                    message: "Please confirm this exact amount with the user - large round numbers often indicate guesses."
+                }),
+            description: z.string()
+                .min(5, "Description must be at least 5 characters - ask for specific details")
+                .max(500, "Description must be less than 500 characters")
+                .refine(val => !['unknown', 'guess', 'estimate', 'approximately', 'around', 'about'].some(word => 
+                    val.toLowerCase().includes(word)
+                ), {
+                    message: "Description seems vague or estimated. Please ask the user for specific details about this transaction."
+                })
+                .refine(val => val.trim().split(' ').length >= 2, {
+                    message: "Please provide a more detailed description - ask the user for specifics about what this transaction was for."
+                }),
+            date: z.string()
+                .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format")
+                .refine(val => {
+                    const date = new Date(val);
+                    const today = new Date();
+                    today.setHours(23, 59, 59, 999); // End of today
+                    return date <= today;
+                }, {
+                    message: "Date cannot be in the future - ask the user for the actual date of this transaction"
+                })
+                .refine(val => {
+                    const date = new Date(val);
+                    const oneYearAgo = new Date();
+                    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+                    return date >= oneYearAgo;
+                }, {
+                    message: "Date seems too old (more than 1 year ago) - please confirm this date with the user"
+                }),
+            category: z.string().optional(),
+            // Add a confirmation flag to ensure user explicitly provided the data
+            userConfirmed: z.boolean().default(false).refine(val => val === true, {
+                message: "You must confirm with the user that all details are correct before creating the movement. Set userConfirmed to true only after explicit user confirmation."
+            })
         }
     },
-    async ({ accountId, type, concept, amount, description, date, category }) => {
+    async ({ accountId, type, concept, amount, description, date, category, userConfirmed }) => {
+        try {
+            // Authentication checks (same as before)
+            if (!authState || !authState.isAuthenticated) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "You are not logged in. Please use the login tool first."
+                    }]
+                };
+            }
+
+            if (authState.expiresAt && Date.now() > authState.expiresAt) {
+                await clearAuthState();
+                return {
+                    content: [{
+                        type: "text",
+                        text: "Your session has expired. Please login again."
+                    }]
+                };
+            }
+
+            // Additional runtime validation to catch common guessing patterns
+            
+            // Check for suspicious round numbers
+            if (amount % 100 === 0 && amount >= 100) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "❌ SUSPICIOUS AMOUNT DETECTED\n\nThe amount appears to be a round number which might indicate a guess. Please confirm with the user that this is the exact amount."
+                    }]
+                };
+            }
+
+            // Check for common placeholder amounts
+            const commonPlaceholders = [1, 5, 10, 20, 25, 50, 100, 200, 500, 1000];
+            if (commonPlaceholders.includes(amount)) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "❌ PLACEHOLDER AMOUNT DETECTED\n\nThis looks like a placeholder or estimated amount. Please ask the user for the exact amount of this transaction."
+                    }]
+                };
+            }
+
+            // Check for suspicious description patterns
+            const suspiciousWords = ['payment', 'transaction', 'expense', 'income', 'money', 'cost', 'price'];
+            const descWords = description.toLowerCase().split(' ');
+            if (descWords.length === 1 && suspiciousWords.includes(descWords[0])) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "❌ GENERIC DESCRIPTION DETECTED\n\nThe description is too generic. Please ask the user for specific details about what this transaction was for (e.g., 'grocery shopping at Walmart', 'salary from ABC Company')."
+                    }]
+                };
+            }
+
+            // Check if date is today (might indicate guessing)
+            const today = new Date().toISOString().split('T')[0];
+            if (date === today) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "⚠️ TODAY'S DATE DETECTED\n\nYou're using today's date. Please confirm with the user that this transaction actually occurred today, or ask them for the specific date."
+                    }]
+                };
+            }
+
+            // Validate concept requirement for expenses
+            if (type === 'expense' && !concept) {
+                return {
+                    content: [{
+                        type: "text",
+                        text: "❌ CONCEPT REQUIRED FOR EXPENSES\n\nFor expenses, you must ask the user to categorize it as one of:\n- needs (essential expenses like food, rent, utilities)\n- wants (discretionary spending like entertainment, dining out)\n- savings (money saved or invested)\n- others (miscellaneous expenses)\n\nPlease ask: 'Is this expense for needs, wants, savings, or others?'"
+                    }]
+                };
+            }
+
+            // If all validations pass, create the movement
+            const movementData = {
+                type,
+                amount,
+                description,
+                date,
+                category
+            };
+
+            if (type === 'expense' && concept) {
+                movementData.concept = concept;
+            } else if (type === 'income' && concept) {
+                movementData.concept = concept;
+            }
+
+            // Make API request
+            const apiUrl = process.env.API_SERVER_URL || 'http://localhost:3001';
+            const response = await fetch(`${apiUrl}/movements/account/${accountId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authState.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(movementData)
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    await clearAuthState();
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "Authentication failed. Please login again."
+                        }]
+                    };
+                }
+
+                if (response.status === 404) {
+                    return {
+                        content: [{
+                            type: "text",
+                            text: "❌ ACCOUNT NOT FOUND\n\nAccount ID not found. Please use the get_accounts tool to see your available accounts and their IDs."
+                        }]
+                    };
+                }
+
+                const errorData = await response.json();
+                return {
+                    content: [{
+                        type: "text",
+                        text: `Failed to create movement: ${errorData.error || response.statusText}`
+                    }]
+                };
+            }
+
+            const movementResponse = await response.json();
+            
+            const typeText = type === 'income' ? 'Income' : 'Expense';
+            const amountText = `$${amount.toFixed(2)}`;
+            
+            let responseText = `✅ ${typeText} movement created successfully!\n\nDetails:\n- Movement ID: ${movementResponse.id}\n- Type: ${typeText}\n- Amount: ${amountText}\n- Description: ${description}\n- Date: ${date}`;
+            
+            if (concept) {
+                responseText += `\n- Concept: ${concept}`;
+            }
+            
+            if (category) {
+                responseText += `\n- Category: ${category}`;
+            }
+            
+            responseText += `\n- Account ID: ${accountId}`;
+
+            return {
+                content: [{
+                    type: "text",
+                    text: responseText
+                }]
+            };
+        } catch (error) {
+            console.log('Error creating movement:', error);
+            return {
+                content: [{
+                    type: "text",
+                    text: `Error creating movement: ${error.message}`
+                }]
+            };
+        }
+    }
+);
+
+// Confirm movement tool - requires explicit user confirmation
+server.registerTool("confirm_movement",
+    {
+        title: "Confirm movement details",
+        description: "Confirm movement details before creating. Use this when you need to verify information with the user before proceeding.",
+        inputSchema: {
+            accountId: z.string().min(1, "Account ID is required"),
+            type: z.enum(["income", "expense"]),
+            concept: z.enum(["needs", "wants", "savings", "others"]).optional(),
+            amount: z.number().positive("Amount must be positive"),
+            description: z.string().min(1, "Description is required"),
+            date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD format"),
+            category: z.string().optional(),
+            confirmed: z.boolean().default(false)
+        }
+    },
+    async ({ accountId, type, concept, amount, description, date, category, confirmed }) => {
         try {
             // Check if user is authenticated
             if (!authState || !authState.isAuthenticated) {
@@ -434,34 +656,44 @@ server.registerTool("create_movement",
                 };
             }
 
-            // Check token expiration
-            if (authState.expiresAt && Date.now() > authState.expiresAt) {
-                await clearAuthState();
+            // If not confirmed, show details and ask for confirmation
+            if (!confirmed) {
+                const typeText = type === 'income' ? 'Income' : 'Expense';
+                const amountText = `$${amount.toFixed(2)}`;
+                
+                let confirmationText = `📋 MOVEMENT DETAILS - PLEASE CONFIRM\n\n`;
+                confirmationText += `Type: ${typeText}\n`;
+                confirmationText += `Amount: ${amountText}\n`;
+                confirmationText += `Description: ${description}\n`;
+                confirmationText += `Date: ${date}\n`;
+                confirmationText += `Account ID: ${accountId}\n`;
+                
+                if (concept) {
+                    confirmationText += `Concept: ${concept}\n`;
+                }
+                
+                if (category) {
+                    confirmationText += `Category: ${category}\n`;
+                }
+                
+                confirmationText += `\n⚠️ Please confirm these details are correct by setting 'confirmed' to true.`;
+                confirmationText += `\n\nIf any details are wrong, please correct them and try again.`;
+
                 return {
                     content: [{
                         type: "text",
-                        text: "Your session has expired. Please login again."
+                        text: confirmationText
                     }]
                 };
             }
 
+            // If confirmed, proceed with creating the movement
             // Validate concept requirement for expenses
             if (type === 'expense' && !concept) {
                 return {
                     content: [{
                         type: "text",
-                        text: "Concept is required for expenses. Please specify: needs, wants, savings, or others."
-                    }]
-                };
-            }
-
-            // Validate date format
-            const movementDate = new Date(date);
-            if (isNaN(movementDate.getTime())) {
-                return {
-                    content: [{
-                        type: "text",
-                        text: "Invalid date format. Please use YYYY-MM-DD format (e.g., 2024-01-15)."
+                        text: "❌ CONCEPT REQUIRED FOR EXPENSES\n\nFor expenses, you must specify a concept. Please ask the user to choose one of: needs, wants, savings, or others."
                     }]
                 };
             }
@@ -479,7 +711,6 @@ server.registerTool("create_movement",
             if (type === 'expense' && concept) {
                 movementData.concept = concept;
             } else if (type === 'income' && concept) {
-                // For incomes, we can include concept if provided, but it's not required
                 movementData.concept = concept;
             }
 
@@ -511,7 +742,7 @@ server.registerTool("create_movement",
                     return {
                         content: [{
                             type: "text",
-                            text: "Account not found. Please check the account ID or create an account first using the create_account tool."
+                            text: "❌ ACCOUNT NOT FOUND\n\nAccount ID not found. Please use the get_accounts tool to see your available accounts and their IDs."
                         }]
                     };
                 }
@@ -527,11 +758,11 @@ server.registerTool("create_movement",
 
             const movementResponse = await response.json();
             
-            // Format the response based on movement type
+            // Format the response
             const typeText = type === 'income' ? 'Income' : 'Expense';
             const amountText = `$${amount.toFixed(2)}`;
             
-            let responseText = `${typeText} movement created successfully!\n\nDetails:\n- Movement ID: ${movementResponse.id}\n- Type: ${typeText}\n- Amount: ${amountText}\n- Description: ${description}\n- Date: ${date}`;
+            let responseText = `✅ ${typeText} movement created successfully!\n\nDetails:\n- Movement ID: ${movementResponse.id}\n- Type: ${typeText}\n- Amount: ${amountText}\n- Description: ${description}\n- Date: ${date}`;
             
             if (concept) {
                 responseText += `\n- Concept: ${concept}`;
@@ -550,11 +781,11 @@ server.registerTool("create_movement",
                 }]
             };
         } catch (error) {
-            console.log('Error creating movement:', error);
+            console.log('Error confirming movement:', error);
             return {
                 content: [{
                     type: "text",
-                    text: `Error creating movement: ${error.message}`
+                    text: `Error confirming movement: ${error.message}`
                 }]
             };
         }
