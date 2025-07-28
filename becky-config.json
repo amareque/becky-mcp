@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/Users/agustin/Documents/Personal/becky-mcp/mcp-server"
+      ]
+    },
+
+    "Becky": {
+      "command": "node",
+      "args": [
+        "/Users/agustin/Documents/Personal/becky-mcp/mcp-server/index.js"
+      ]
+    }
+  }
+}

@@ -1,0 +1,106 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "generated"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  accounts Account[]
+  contexts Context[]
+  contacts Contact[]
+
+  @@map("users")
+}
+
+model Account {
+  id     String  @id @default(cuid())
+  userId String
+  name   String
+  bank   String?
+  type   String? // e.g., checking, cash, savings
+
+  // Relations
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movements Movement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("accounts")
+}
+
+model Movement {
+  id          String   @id @default(cuid())
+  accountId   String
+  type        String // 'income' | 'expense'
+  concept     String // 'needs' | 'wants' | 'savings' | 'others'
+  amount      Float
+  description String
+  date        DateTime
+  category    String?
+  
+  // Loan/Shared expense fields
+  isLoan           Boolean @default(false)
+  loanType         String? // 'lent' | 'borrowed' | 'shared'
+  originalAmount   Float? // monto total del gasto compartido
+  participants     Int? // número de personas
+  pendingAmount    Float? // monto pendiente por cobrar/pagar
+  relatedPeople    Json? // Array de personas involucradas
+  loanStatus       String @default("active") // 'active' | 'settled'
+  relatedMovementId String? // ID del movimiento relacionado (para préstamos)
+
+  // Relations
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("movements")
+}
+
+model Context {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  json        Json // user context and preferences
+  lastUpdated DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("contexts")
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  phone     String?
+  email     String?
+  nickname  String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("contacts")
+}

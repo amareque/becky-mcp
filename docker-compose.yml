@@ -1,0 +1,24 @@
+name: "becky-tbk-app-local"
+
+services:
+  postgres-local:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: becky-tbk-app-db-user
+      POSTGRES_PASSWORD: becky-tbk-app-db-pw
+      POSTGRES_DB: becky_tbk_app_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+#  redis-local:
+#    image: redis:7
+#    ports:
+#      - '6379:6379'
+#    volumes:
+#      - redis_data:/data
+
+volumes:
+  postgres_data:
+#  redis_data:
